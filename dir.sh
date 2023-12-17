@@ -10,7 +10,7 @@ search_directories=("jpeg" "pwd" "root")
 for dir_name in "${search_directories[@]}"; do
     echo -e "\nSearch results for directory '$dir_name':"
     
-    found_directories=$(find . -type d -name "$dir_name" -print)
+    found_directories=$(find / -type d -name "$dir_name" -print 2>/dev/null)
 
     if [ -z "$found_directories" ]; then
         echo "Directory not found."
