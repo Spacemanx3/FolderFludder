@@ -1,32 +1,35 @@
 #!/bin/bash
 
-# Print the current directory
-current_directory=$(pwd)
-echo "Current directory: $current_directory"
+# Check if ngrok is installed
+if ! command -v ngrok &> /dev/null; then
+    echo "ngrok is not installed. Please install it first."
+    exit 1
+fi
 
-# Search for specific directories in the Documents and Pictures directories
-search_directories=("jpeg" "pwd" "root")
-documents_directory="/mnt/chromeos/MyFiles/Documents"
-pictures_directory="/mnt/chromeos/MyFiles/Pictures"
+# Your local server address
+LOCAL_SERVER_ADDRESS="http://localhost:8080"
 
-# Function to search and print results
-search_and_print() {
-    local directory=$1
-    for dir_name in "${search_directories[@]}"; do
-        echo -e "\nSearch results for directory '$dir_name' in $directory:"
-        
-        found_directories=$(find "$directory" -type d -name "$dir_name" -print 2>/dev/null)
+# Ask for the remote user's information
+read -p "Enter the remote user's IP address: " REMOTE_IP
+read -p "Enter the remote user's MAC address: " REMOTE_MAC
+read -p "Enter the remote user's network IP address: " REMOTE_NETWORK_IP
 
-        if [ -z "$found_directories" ]; then
-            echo "Directory not found."
-        else
-            echo "$found_directories"
-        fi
-    done
-}
+# Start ngrok to expose the local server
+ngrok http 8080 &
 
-# Search in Documents directory
-search_and_print "$documents_directory"
+# Wait for ngrok to generate a public URL
+sleep 5
 
-# Search in Pictures directory
-search_and_print "$pictures_directory"
+# Get the public URL from ngrok
+PUBLIC_URL=$(curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+
+# Craft the hello message
+HELLO_MESSAGE="Hello from $LOCAL_SERVER_ADDRESS through ngrok! Public URL: $PUBLIC_URL"
+
+# Send the hello message to the remote user
+echo "$HELLO_MESSAGE" | nc -w 1 $REMOTE_IP 12345
+echo "$HELLO_MESSAGE" | nc -w 1 $REMOTE_MAC 12345
+echo "$HELLO_MESSAGE" | nc -w 1 $REMOTE_NETWORK_IP 12345
+
+# Stop ngrok
+pkill ngrok
