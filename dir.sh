@@ -1,35 +1,50 @@
 #!/bin/bash
 
-# Check if ngrok is installed
-if ! command -v ngrok &> /dev/null; then
-    echo "ngrok is not installed. Please install it first."
-    exit 1
+# Prompt the user for the URL of the web server
+read -p "Enter the URL of the web server: " url
+
+# Check if the URL is provided
+if [ -z "$url" ]; then
+  echo "URL cannot be empty. Exiting."
+  exit 1
 fi
 
-# Your local server address
-LOCAL_SERVER_ADDRESS="http://localhost:8080"
+# Prompt the user for the message to send
+read -p "Enter the message to send: " message
 
-# Ask for the remote user's information
-read -p "Enter the remote user's IP address: " REMOTE_IP
-read -p "Enter the remote user's MAC address: " REMOTE_MAC
-read -p "Enter the remote user's network IP address: " REMOTE_NETWORK_IP
+# Check if the message is provided
+if [ -z "$message" ]; then
+  echo "Message cannot be empty. Exiting."
+  exit 1
+fi
 
-# Start ngrok to expose the local server
-ngrok http 8080 &
+# Scan the local network for other devices
+network_scan_result=$(nmap -sn 192.168.1.0/24 | grep "Host is up")
 
-# Wait for ngrok to generate a public URL
-sleep 5
+# Check if any devices are found
+if [ -z "$network_scan_result" ]; then
+  echo "No other devices found on the network. Cannot send to other computers."
+else
+  # Prompt the user for the IP address of the target computer
+  read -p "Enter the IP address of the target computer: " target_ip
 
-# Get the public URL from ngrok
-PUBLIC_URL=$(curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+  # Check if the target IP is provided
+  if [ -z "$target_ip" ]; then
+    echo "Target IP cannot be empty. Exiting."
+    exit 1
+  fi
 
-# Craft the hello message
-HELLO_MESSAGE="Hello from $LOCAL_SERVER_ADDRESS through ngrok! Public URL: $PUBLIC_URL"
+  # Prompt the user for the SSH username on the target machine
+  read -p "Enter the SSH username on the target machine: " ssh_username
 
-# Send the hello message to the remote user
-echo "$HELLO_MESSAGE" | nc -w 1 $REMOTE_IP 12345
-echo "$HELLO_MESSAGE" | nc -w 1 $REMOTE_MAC 12345
-echo "$HELLO_MESSAGE" | nc -w 1 $REMOTE_NETWORK_IP 12345
+  # Check if the SSH username is provided
+  if [ -z "$ssh_username" ]; then
+    echo "SSH username cannot be empty. Exiting."
+    exit 1
+  fi
 
-# Stop ngrok
-pkill ngrok
+  # Use SSH to run a command on the target machine, displaying the message
+  ssh $ssh_username@$target_ip "DISPLAY=:0 zenity --info --text='$message'"
+
+  echo "Message sent to $target_ip"
+fi
